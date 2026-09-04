@@ -1,0 +1,159 @@
+---
+title: "Tampa (KTPA) Weather & Extreme Events (2015–2024)"
+format:
+  html:
+    theme: cosmo
+    toc: true
+execute:
+  echo: false
+  warning: false
+  message: false
+---
+
+```{r}
+#| label: setup
+#| message: false
+library(tidyverse)
+library(plotly)
+```
+
+```{r}
+#| label: load-data
+# Read all yearly CSV files and compute daily summaries
+files <- list.files("data", pattern = "\\.csv$", full.names = TRUE)
+
+weather <- map(files, \(f) {
+  read_csv(f, col_types = cols(.default = col_character()), show_col_types = FALSE)
+}) |>
+  list_rbind() |>
+  mutate(
+    date = as.Date(DATE),
+    temp = parse_number(HourlyDryBulbTemperature),
+    dew_point = parse_number(HourlyDewPointTemperature),
+    pressure = parse_number(HourlyStationPressure),
+    wind_speed = parse_number(HourlyWindSpeed),
+    precip = parse_number(na_if(HourlyPrecipitation, "T"))
+  ) |>
+  mutate(precip = replace_na(precip, 0)) |>
+  group_by(date) |>
+  summarize(
+    temp = mean(temp, na.rm = TRUE),
+    dew_point = mean(dew_point, na.rm = TRUE),
+    pressure = mean(pressure, na.rm = TRUE),
+    wind_speed = mean(wind_speed, na.rm = TRUE),
+    precip = sum(precip, na.rm = TRUE),
+    .groups = "drop"
+  )
+
+# Significant Florida natural disasters and storms during 2015-2024
+disasters <- tribble(
+  ~date, ~event,
+  as.Date("2016-09-02"), "Hurricane Hermine",
+  as.Date("2017-09-10"), "Hurricane Irma",
+  as.Date("2018-10-10"), "Hurricane Michael",
+  as.Date("2022-09-28"), "Hurricane Ian",
+  as.Date("2022-12-24"), "Christmas Arctic Freeze",
+  as.Date("2023-08-30"), "Hurricane Idalia",
+  as.Date("2024-08-04"), "Hurricane Debby",
+  as.Date("2024-09-26"), "Hurricane Helene",
+  as.Date("2024-10-09"), "Hurricane Milton"
+)
+
+weather <- left_join(weather, disasters, by = "date")
+```
+
+::: {.callout-note}
+### Natural Disasters Tracked (Red Markers)
+The dashed red vertical lines and highlighted points mark major storms and natural disasters affecting the Tampa Bay area across the full 10-year timeline (2015–2024), including **Hurricane Irma (2017)**, **Hurricane Ian (2022)**, the **Christmas 2022 Freeze**, **Hurricane Helene (2024)**, and **Hurricane Milton (2024)**. Hover over any point to inspect dates and readings.
+:::
+
+## Temperature
+
+```{r}
+p_temp <- ggplot(weather, aes(x = date, y = temp)) +
+  geom_area(fill = "#FF8A65", alpha = 0.25) +
+  geom_line(color = "#D84315", linewidth = 0.6) +
+  geom_vline(data = disasters, aes(xintercept = date), linetype = "dashed", color = "#C62828", alpha = 0.35) +
+  geom_point(data = filter(weather, !is.na(event)), 
+             aes(text = paste0("<b>", event, "</b><br>Date: ", date, "<br>Temp: ", round(temp, 1), " °F")),
+             color = "#C62828", size = 2) +
+  scale_x_date(date_breaks = "1 year", date_labels = "%Y", expand = c(0.01, 0)) +
+  labs(title = "Daily Average Temperature (°F)", x = "Year", y = "Temperature (°F)") +
+  theme_minimal(base_size = 12) +
+  theme(panel.grid.minor = element_blank())
+
+suppressWarnings(ggplotly(p_temp, tooltip = c("x", "y", "text")))
+```
+
+## Dew Point
+
+```{r}
+p_dew <- ggplot(weather, aes(x = date, y = dew_point)) +
+  geom_area(fill = "#80CBC4", alpha = 0.25) +
+  geom_line(color = "#00695C", linewidth = 0.6) +
+  geom_vline(data = disasters, aes(xintercept = date), linetype = "dashed", color = "#C62828", alpha = 0.35) +
+  geom_point(data = filter(weather, !is.na(event)), 
+             aes(text = paste0("<b>", event, "</b><br>Date: ", date, "<br>Dew Point: ", round(dew_point, 1), " °F")),
+             color = "#C62828", size = 2) +
+  scale_x_date(date_breaks = "1 year", date_labels = "%Y", expand = c(0.01, 0)) +
+  labs(title = "Daily Average Dew Point (°F)", x = "Year", y = "Dew Point (°F)") +
+  theme_minimal(base_size = 12) +
+  theme(panel.grid.minor = element_blank())
+
+suppressWarnings(ggplotly(p_dew, tooltip = c("x", "y", "text")))
+```
+
+## Pressure
+
+```{r}
+p_press <- ggplot(weather, aes(x = date, y = pressure)) +
+  geom_area(fill = "#90CAF9", alpha = 0.25) +
+  geom_line(color = "#1565C0", linewidth = 0.6) +
+  geom_vline(data = disasters, aes(xintercept = date), linetype = "dashed", color = "#C62828", alpha = 0.35) +
+  geom_point(data = filter(weather, !is.na(event)), 
+             aes(text = paste0("<b>", event, "</b><br>Date: ", date, "<br>Pressure: ", round(pressure, 2), " inHg")),
+             color = "#C62828", size = 2) +
+  scale_x_date(date_breaks = "1 year", date_labels = "%Y", expand = c(0.01, 0)) +
+  labs(title = "Daily Average Station Pressure (inHg)", x = "Year", y = "Pressure (inHg)") +
+  theme_minimal(base_size = 12) +
+  theme(panel.grid.minor = element_blank())
+
+suppressWarnings(ggplotly(p_press, tooltip = c("x", "y", "text")))
+```
+
+## Wind Speed
+
+```{r}
+p_wind <- ggplot(weather, aes(x = date, y = wind_speed)) +
+  geom_area(fill = "#CE93D8", alpha = 0.25) +
+  geom_line(color = "#6A1B9A", linewidth = 0.6) +
+  geom_vline(data = disasters, aes(xintercept = date), linetype = "dashed", color = "#C62828", alpha = 0.35) +
+  geom_point(data = filter(weather, !is.na(event)), 
+             aes(text = paste0("<b>", event, "</b><br>Date: ", date, "<br>Wind: ", round(wind_speed, 1), " mph")),
+             color = "#C62828", size = 2) +
+  scale_x_date(date_breaks = "1 year", date_labels = "%Y", expand = c(0.01, 0)) +
+  labs(title = "Daily Average Wind Speed (mph)", x = "Year", y = "Wind Speed (mph)") +
+  theme_minimal(base_size = 12) +
+  theme(panel.grid.minor = element_blank())
+
+suppressWarnings(ggplotly(p_wind, tooltip = c("x", "y", "text")))
+```
+
+## Precipitation
+
+```{r}
+p_precip <- ggplot(weather, aes(x = date, y = precip)) +
+  geom_col(fill = "#0288D1", width = 1) +
+  geom_vline(data = disasters, aes(xintercept = date), linetype = "dashed", color = "#C62828", alpha = 0.35) +
+  geom_point(data = filter(weather, !is.na(event)), 
+             aes(text = paste0("<b>", event, "</b><br>Date: ", date, "<br>Precipitation: ", round(precip, 2), " in")),
+             color = "#C62828", size = 2) +
+  scale_x_date(date_breaks = "1 year", date_labels = "%Y", expand = c(0.01, 0)) +
+  labs(title = "Daily Total Precipitation (inches)", x = "Year", y = "Precipitation (in)") +
+  theme_minimal(base_size = 12) +
+  theme(panel.grid.minor = element_blank())
+
+suppressWarnings(ggplotly(p_precip, tooltip = c("x", "y", "text")))
+```
+
+
