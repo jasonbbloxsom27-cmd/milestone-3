@@ -23,92 +23,95 @@ library(plotly)
 
 ```{r}
 #| label: load-data
-# Read 10-year hourly weather telemetry and aggregate daily statistics
+# Read 10-year hourly weather telemetry for every recorded observation
 files <- list.files("data", pattern = "\\.csv$", full.names = TRUE)
 
-weather <- map(files, \(f) {
+weather_hourly <- map(files, \(f) {
   read_csv(f, col_types = cols(.default = col_character()), show_col_types = FALSE)
 }) |>
   list_rbind() |>
+  filter(grepl(":53:", DATE)) |>
   mutate(
-    date = as.Date(DATE),
+    datetime = as.POSIXct(DATE),
     temp = parse_number(HourlyDryBulbTemperature),
     dew_point = parse_number(HourlyDewPointTemperature),
     pressure = parse_number(HourlyStationPressure),
     wind_speed = parse_number(HourlyWindSpeed),
-    precip = parse_number(na_if(HourlyPrecipitation, "T"))
+    precip = replace_na(parse_number(na_if(HourlyPrecipitation, "T")), 0)
   ) |>
-  mutate(precip = replace_na(precip, 0)) |>
-  group_by(date) |>
-  summarize(
-    temp = mean(temp, na.rm = TRUE),
-    dew_point = mean(dew_point, na.rm = TRUE),
-    pressure = mean(pressure, na.rm = TRUE),
-    wind_speed = mean(wind_speed, na.rm = TRUE),
-    precip = sum(precip, na.rm = TRUE),
-    .groups = "drop"
-  )
+  filter(!is.na(datetime))
 
 # Significant Florida natural disasters and storms during 2015-2024
 disasters <- tribble(
-  ~date, ~event,
-  as.Date("2016-09-02"), "Hurricane Hermine",
-  as.Date("2017-09-10"), "Hurricane Irma",
-  as.Date("2018-10-10"), "Hurricane Michael",
-  as.Date("2022-09-28"), "Hurricane Ian",
-  as.Date("2022-12-24"), "Christmas Arctic Freeze",
-  as.Date("2023-08-30"), "Hurricane Idalia",
-  as.Date("2024-08-04"), "Hurricane Debby",
-  as.Date("2024-09-26"), "Hurricane Helene",
-  as.Date("2024-10-09"), "Hurricane Milton"
+  ~datetime, ~event,
+  as.POSIXct("2016-09-02 12:00:00"), "Hurricane Hermine",
+  as.POSIXct("2017-09-10 12:00:00"), "Hurricane Irma",
+  as.POSIXct("2018-10-10 12:00:00"), "Hurricane Michael",
+  as.POSIXct("2022-09-28 12:00:00"), "Hurricane Ian",
+  as.POSIXct("2022-12-24 12:00:00"), "Christmas Arctic Freeze",
+  as.POSIXct("2023-08-30 12:00:00"), "Hurricane Idalia",
+  as.POSIXct("2024-08-04 12:00:00"), "Hurricane Debby",
+  as.POSIXct("2024-09-26 12:00:00"), "Hurricane Helene",
+  as.POSIXct("2024-10-09 12:00:00"), "Hurricane Milton"
 )
 
-weather <- left_join(weather, disasters, by = "date")
+# Vertical red dashed markers for natural disasters
+disaster_shapes <- pmap(disasters, \(datetime, event) {
+  list(
+    type = "line",
+    x0 = datetime,
+    x1 = datetime,
+    y0 = 0,
+    y1 = 1,
+    yref = "paper",
+    line = list(color = "#C62828", dash = "dash", width = 1.3)
+  )
+})
 ```
 
 <div class="news-header">
-  <span class="news-badge">SPECIAL METEOROLOGICAL DISPATCH</span>
-  <h1 style="color: #ffffff; margin-top: 0.5rem; font-weight: 800;">A Decade Under the Storm: Inside Tampa Bay's 10-Year Weather Extremes</h1>
-  <p style="margin-bottom: 0.25rem;"><strong>By The Weather Desk</strong> | Tampa International Airport (KTPA) Telemetry Network</p>
-  <div class="news-station-tag">STATION: KTPA (72211012842) | LAT: 27.96° N | LON: -82.54° W | ELEV: 19 FT | PERIOD: 2015–2024</div>
+<span class="news-badge">SPECIAL METEOROLOGICAL DISPATCH</span>
+<h1 style="color: #ffffff; margin-top: 0.5rem; font-weight: 800;">A Decade Under the Storm: Inside Tampa Bay's 10-Year Weather Extremes</h1>
+<p style="margin-bottom: 0.25rem;"><strong>By The Weather Desk</strong> | Tampa International Airport (KTPA) Telemetry Network</p>
+<div class="news-station-tag">STATION: KTPA (72211012842) | LAT: 27.96° N | LON: -82.54° W | ELEV: 19 FT | PERIOD: 2015–2024</div>
 </div>
 
 <div class="records-grid">
-  <div class="record-card">
-    <div class="record-icon">🌡️</div>
-    <div class="record-value">98°F</div>
-    <div class="record-label">10-Year Record High</div>
-    <div class="record-event">Summer Heatwaves</div>
-  </div>
-  <div class="record-card">
-    <div class="record-icon">❄️</div>
-    <div class="record-value">29°F</div>
-    <div class="record-label">10-Year Record Low</div>
-    <div class="record-event">Dec 2022 Arctic Freeze</div>
-  </div>
-  <div class="record-card">
-    <div class="record-icon">🌪️</div>
-    <div class="record-value">28.69</div>
-    <div class="record-label">Lowest Pressure (inHg)</div>
-    <div class="record-event">Hurricane Irma Eye (2017)</div>
-  </div>
-  <div class="record-card">
-    <div class="record-icon">💨</div>
-    <div class="record-value">47 mph</div>
-    <div class="record-label">Max Sustained Wind</div>
-    <div class="record-event">Tropical Gale Peak</div>
-  </div>
-  <div class="record-card">
-    <div class="record-icon">🌧️</div>
-    <div class="record-value">16.14 in</div>
-    <div class="record-label">Wettest Single Day</div>
-    <div class="record-event">Hurricane Debby (2024)</div>
-  </div>
+<div class="record-card">
+<div class="record-icon">🌡️</div>
+<div class="record-value">98°F</div>
+<div class="record-label">10-Year Record High</div>
+<div class="record-event">Summer Heatwaves</div>
+</div>
+<div class="record-card">
+<div class="record-icon">❄️</div>
+<div class="record-value">29°F</div>
+<div class="record-label">10-Year Record Low</div>
+<div class="record-event">Dec 2022 Arctic Freeze</div>
+</div>
+<div class="record-card">
+<div class="record-icon">🌪️</div>
+<div class="record-value">28.69</div>
+<div class="record-label">Lowest Pressure (inHg)</div>
+<div class="record-event">Hurricane Irma Eye (2017)</div>
+</div>
+<div class="record-card">
+<div class="record-icon">💨</div>
+<div class="record-value">47 mph</div>
+<div class="record-label">Max Sustained Wind</div>
+<div class="record-event">Tropical Gale Peak</div>
+</div>
+<div class="record-card">
+<div class="record-icon">🌧️</div>
+<div class="record-value">16.14 in</div>
+<div class="record-label">Wettest Single Day</div>
+<div class="record-event">Hurricane Debby (2024)</div>
+</div>
 </div>
 
 ::: {.callout-note}
 ### Natural Disasters Tracked (Red Dashed Markers)
-Across the decade, Tampa confronted historic tropical cyclones and extreme temperature anomalies. The red dashed lines and highlighted dots mark landfall and close-passage dates for **Hurricane Hermine (2016)**, **Hurricane Irma (2017)**, **Hurricane Michael (2018)**, **Hurricane Ian (2022)**, the **Christmas 2022 Arctic Outbreak**, **Hurricane Idalia (2023)**, **Hurricane Debby (2024)**, **Hurricane Helene (2024)**, and **Hurricane Milton (2024)**. As you scroll down, each interactive chart graphs itself dynamically across the 10-year timeline!
+Across the decade, Tampa confronted historic tropical cyclones and extreme temperature anomalies. The red dashed lines mark landfall and close-passage dates for **Hurricane Hermine (2016)**, **Hurricane Irma (2017)**, **Hurricane Michael (2018)**, **Hurricane Ian (2022)**, the **Christmas 2022 Arctic Outbreak**, **Hurricane Idalia (2023)**, **Hurricane Debby (2024)**, **Hurricane Helene (2024)**, and **Hurricane Milton (2024)**. Each graph features **every recorded hourly observation (over 87,500 data points)** across the 10-year span and automatically draws itself when you arrive at its section!
 :::
 
 ## 1. Thermal Trends: Temperature Record
@@ -118,23 +121,30 @@ Across the decade, Tampa confronted historic tropical cyclones and extreme tempe
 SURFACE CLIMATOLOGY BRIEFING
 ::::
 ### Heat Domes and Winter Frosts: A Decade of Temperature Shifts
-Tampa's subtropical marine climate maintains prolonged summer heat streaks where daily averages persistently top 85°F. Winter months bring brief, sharp cold snaps driven by continental polar air masses. The most severe cold outbreak occurred during the Christmas 2022 freeze, dropping temperatures to an extraordinary 29°F.
+<p class="news-lede">Tampa's subtropical marine climate maintains prolonged summer heat streaks where daily temperatures persistently top 85°F. Winter months bring brief, sharp cold snaps driven by continental polar air masses. The most severe cold outbreak occurred during the Christmas 2022 freeze, dropping temperatures to an extraordinary 29°F.</p>
+
+<div class="stat-highlight-row">
+<div class="stat-badge-item">
+<span class="stat-badge-label">Highest Peak Data Point</span>
+<span class="stat-badge-value">98.0°F <small style="font-weight:normal; color:#64748b;">(Aug 11, 2023) | Daily Avg: 89.7°F</small></span>
+</div>
+<div class="stat-badge-item">
+<span class="stat-badge-label">Highest Average Year</span>
+<span class="stat-badge-value">2023 <small style="font-weight:normal; color:#64748b;">(Annual Mean: 75.6°F)</small></span>
+</div>
+</div>
 
 :::: {.scroll-graph}
 ```{r}
-p_temp <- ggplot(weather, aes(x = date, y = temp)) +
-  geom_area(fill = "#FF8A65", alpha = 0.25) +
-  geom_line(color = "#D84315", linewidth = 0.6) +
-  geom_vline(data = disasters, aes(xintercept = date), linetype = "dashed", color = "#C62828", alpha = 0.4) +
-  geom_point(data = filter(weather, !is.na(event)), 
-             aes(text = paste0("<b>", event, "</b><br>Date: ", date, "<br>Daily Avg Temp: ", round(temp, 1), " °F")),
-             color = "#C62828", size = 2) +
-  scale_x_date(date_breaks = "1 year", date_labels = "%Y", expand = c(0.01, 0)) +
-  labs(title = "Daily Average Temperature (°F) — Tampa International Airport (2015–2024)", x = "Year", y = "Temperature (°F)") +
-  theme_minimal(base_size = 12) +
-  theme(panel.grid.minor = element_blank())
-
-suppressWarnings(ggplotly(p_temp, tooltip = c("x", "y", "text")))
+plot_ly(weather_hourly, x = ~datetime, y = ~temp, type = "scattergl", mode = "lines",
+        line = list(color = "#D84315", width = 1), name = "Hourly Temp") |>
+  layout(
+    title = list(text = "Hourly Temperature (°F) — Every Recorded Observation (2015–2024)", x = 0),
+    xaxis = list(title = "Timestamp", showgrid = TRUE),
+    yaxis = list(title = "Temperature (°F)", showgrid = TRUE),
+    shapes = disaster_shapes,
+    margin = list(t = 40, b = 40, l = 50, r = 20)
+  )
 ```
 ::::
 :::::
@@ -146,23 +156,30 @@ suppressWarnings(ggplotly(p_temp, tooltip = c("x", "y", "text")))
 MOISTURE & HUMIDITY PROFILING
 ::::
 ### The Gulf Moisture Engine: Dew Points Above 75°F
-Dew point temperatures serve as meteorologists' premier measurement of true atmospheric moisture content. In Tampa, summer dew points frequently exceed 75°F—a threshold indicating tropical mugginess that fuels convective afternoon thunderstorms and supercharges landfalling tropical cyclones.
+<p class="news-lede">Dew point temperatures serve as meteorologists' premier measurement of true atmospheric moisture content. In Tampa, summer dew points frequently exceed 75°F—a threshold indicating tropical mugginess that fuels convective afternoon thunderstorms and supercharges landfalling tropical cyclones.</p>
+
+<div class="stat-highlight-row">
+<div class="stat-badge-item">
+<span class="stat-badge-label">Highest Peak Data Point</span>
+<span class="stat-badge-value">82.0°F <small style="font-weight:normal; color:#64748b;">(Aug 7, 2024) | Daily Avg: 80.7°F</small></span>
+</div>
+<div class="stat-badge-item">
+<span class="stat-badge-label">Highest Average Year</span>
+<span class="stat-badge-value">2015 <small style="font-weight:normal; color:#64748b;">(Annual Mean: 65.2°F)</small></span>
+</div>
+</div>
 
 :::: {.scroll-graph}
 ```{r}
-p_dew <- ggplot(weather, aes(x = date, y = dew_point)) +
-  geom_area(fill = "#80CBC4", alpha = 0.25) +
-  geom_line(color = "#00695C", linewidth = 0.6) +
-  geom_vline(data = disasters, aes(xintercept = date), linetype = "dashed", color = "#C62828", alpha = 0.4) +
-  geom_point(data = filter(weather, !is.na(event)), 
-             aes(text = paste0("<b>", event, "</b><br>Date: ", date, "<br>Daily Avg Dew Point: ", round(dew_point, 1), " °F")),
-             color = "#C62828", size = 2) +
-  scale_x_date(date_breaks = "1 year", date_labels = "%Y", expand = c(0.01, 0)) +
-  labs(title = "Daily Average Dew Point (°F) — Atmospheric Moisture Index (2015–2024)", x = "Year", y = "Dew Point (°F)") +
-  theme_minimal(base_size = 12) +
-  theme(panel.grid.minor = element_blank())
-
-suppressWarnings(ggplotly(p_dew, tooltip = c("x", "y", "text")))
+plot_ly(weather_hourly, x = ~datetime, y = ~dew_point, type = "scattergl", mode = "lines",
+        line = list(color = "#00695C", width = 1), name = "Hourly Dew Point") |>
+  layout(
+    title = list(text = "Hourly Dew Point (°F) — Every Recorded Observation (2015–2024)", x = 0),
+    xaxis = list(title = "Timestamp", showgrid = TRUE),
+    yaxis = list(title = "Dew Point (°F)", showgrid = TRUE),
+    shapes = disaster_shapes,
+    margin = list(t = 40, b = 40, l = 50, r = 20)
+  )
 ```
 ::::
 :::::
@@ -174,23 +191,30 @@ suppressWarnings(ggplotly(p_dew, tooltip = c("x", "y", "text")))
 SYNOPTIC BAROMETRY & HURRICANE TRACKING
 ::::
 ### The Fingerprint of Monster Storms: Dramatic Pressure Plunges
-Atmospheric pressure is the vital sign of tropical cyclones. Standard atmospheric pressure at KTPA rests around 30.00 to 30.20 inHg. On September 10–11, 2017, Hurricane Irma's core hammered Tampa, causing station pressure to plummet to a historic low of 28.69 inHg. In October 2024, Hurricane Milton triggered another collapse to 29.10 inHg as its eye passed near Tampa Bay.
+<p class="news-lede">Atmospheric pressure is the vital sign of tropical cyclones. Standard atmospheric pressure at KTPA rests around 30.00 to 30.20 inHg. On September 10–11, 2017, Hurricane Irma's core hammered Tampa, causing station pressure to plummet to a historic low of 28.69 inHg. In October 2024, Hurricane Milton triggered another collapse to 29.10 inHg as its eye passed near Tampa Bay.</p>
+
+<div class="stat-highlight-row">
+<div class="stat-badge-item">
+<span class="stat-badge-label">Highest Peak Data Point</span>
+<span class="stat-badge-value">30.55 inHg <small style="font-weight:normal; color:#64748b;">(Jan 8, 2017) | Daily Avg: 30.52 inHg</small></span>
+</div>
+<div class="stat-badge-item">
+<span class="stat-badge-label">Highest Average Year</span>
+<span class="stat-badge-value">2018 <small style="font-weight:normal; color:#64748b;">(Annual Mean: 30.06 inHg)</small></span>
+</div>
+</div>
 
 :::: {.scroll-graph}
 ```{r}
-p_press <- ggplot(weather, aes(x = date, y = pressure)) +
-  geom_area(fill = "#90CAF9", alpha = 0.25) +
-  geom_line(color = "#1565C0", linewidth = 0.6) +
-  geom_vline(data = disasters, aes(xintercept = date), linetype = "dashed", color = "#C62828", alpha = 0.4) +
-  geom_point(data = filter(weather, !is.na(event)), 
-             aes(text = paste0("<b>", event, "</b><br>Date: ", date, "<br>Station Pressure: ", round(pressure, 2), " inHg")),
-             color = "#C62828", size = 2) +
-  scale_x_date(date_breaks = "1 year", date_labels = "%Y", expand = c(0.01, 0)) +
-  labs(title = "Daily Average Station Pressure (inHg) — Cyclone Signatures (2015–2024)", x = "Year", y = "Station Pressure (inHg)") +
-  theme_minimal(base_size = 12) +
-  theme(panel.grid.minor = element_blank())
-
-suppressWarnings(ggplotly(p_press, tooltip = c("x", "y", "text")))
+plot_ly(weather_hourly, x = ~datetime, y = ~pressure, type = "scattergl", mode = "lines",
+        line = list(color = "#1565C0", width = 1), name = "Hourly Pressure") |>
+  layout(
+    title = list(text = "Hourly Station Pressure (inHg) — Every Recorded Observation (2015–2024)", x = 0),
+    xaxis = list(title = "Timestamp", showgrid = TRUE),
+    yaxis = list(title = "Pressure (inHg)", showgrid = TRUE),
+    shapes = disaster_shapes,
+    margin = list(t = 40, b = 40, l = 50, r = 20)
+  )
 ```
 ::::
 :::::
@@ -202,23 +226,30 @@ suppressWarnings(ggplotly(p_press, tooltip = c("x", "y", "text")))
 ANEMOMETER & GALE TELEMETRY
 ::::
 ### From Coastal Sea Breezes to Hurricane-Force Gales
-Daily average wind speeds in Tampa generally hover between 5 and 10 mph due to diurnal sea breezes. However, tropical cyclone passages dramatically spike wind velocities. Hurricane Irma (2017) recorded sustained winds reaching 46 mph at the airport, while Hurricane Helene (2024) generated sustained 39 mph gales driving unprecedented coastal storm surge across Tampa Bay.
+<p class="news-lede">Average wind speeds in Tampa generally hover between 5 and 10 mph due to diurnal sea breezes. However, tropical cyclone passages dramatically spike wind velocities. Hurricane Irma (2017) recorded sustained winds reaching 46 mph at the airport, while Hurricane Helene (2024) generated sustained 39 mph gales driving unprecedented coastal storm surge across Tampa Bay.</p>
+
+<div class="stat-highlight-row">
+<div class="stat-badge-item">
+<span class="stat-badge-label">Highest Peak Data Point</span>
+<span class="stat-badge-value">47.0 mph <small style="font-weight:normal; color:#64748b;">(Sep 10, 2017 - Irma) | Daily Avg: 24.4 mph</small></span>
+</div>
+<div class="stat-badge-item">
+<span class="stat-badge-label">Highest Average Year</span>
+<span class="stat-badge-value">2020 <small style="font-weight:normal; color:#64748b;">(Annual Mean: 7.1 mph)</small></span>
+</div>
+</div>
 
 :::: {.scroll-graph}
 ```{r}
-p_wind <- ggplot(weather, aes(x = date, y = wind_speed)) +
-  geom_area(fill = "#CE93D8", alpha = 0.25) +
-  geom_line(color = "#6A1B9A", linewidth = 0.6) +
-  geom_vline(data = disasters, aes(xintercept = date), linetype = "dashed", color = "#C62828", alpha = 0.4) +
-  geom_point(data = filter(weather, !is.na(event)), 
-             aes(text = paste0("<b>", event, "</b><br>Date: ", date, "<br>Daily Avg Wind Speed: ", round(wind_speed, 1), " mph")),
-             color = "#C62828", size = 2) +
-  scale_x_date(date_breaks = "1 year", date_labels = "%Y", expand = c(0.01, 0)) +
-  labs(title = "Daily Average Wind Speed (mph) — 10-Year Anemometer Log (2015–2024)", x = "Year", y = "Wind Speed (mph)") +
-  theme_minimal(base_size = 12) +
-  theme(panel.grid.minor = element_blank())
-
-suppressWarnings(ggplotly(p_wind, tooltip = c("x", "y", "text")))
+plot_ly(weather_hourly, x = ~datetime, y = ~wind_speed, type = "scattergl", mode = "lines",
+        line = list(color = "#6A1B9A", width = 1), name = "Hourly Wind Speed") |>
+  layout(
+    title = list(text = "Hourly Wind Speed (mph) — Every Recorded Observation (2015–2024)", x = 0),
+    xaxis = list(title = "Timestamp", showgrid = TRUE),
+    yaxis = list(title = "Wind Speed (mph)", showgrid = TRUE),
+    shapes = disaster_shapes,
+    margin = list(t = 40, b = 40, l = 50, r = 20)
+  )
 ```
 ::::
 :::::
@@ -230,22 +261,30 @@ suppressWarnings(ggplotly(p_wind, tooltip = c("x", "y", "text")))
 HYDROLOGICAL DISPATCH & RAINFALL TOTALS
 ::::
 ### The 2024 Deluges: Unprecedented Rain Events
-While Florida experiences intense daily summer rain bursts, 2024 produced catastrophic back-to-back precipitation extremes. On August 4, 2024, tropical feeder bands from Hurricane Debby inundated KTPA with 16.14 inches of rain in 24 hours—the wettest single day in the modern station record. Just two months later, Hurricane Milton dumped an additional 16.00 inches in a single evening.
+<p class="news-lede">While Florida experiences intense daily summer rain bursts, 2024 produced catastrophic back-to-back precipitation extremes. On August 4, 2024, tropical feeder bands from Hurricane Debby inundated KTPA with 16.14 inches of rain in 24 hours—the wettest single day in the modern station record. Just two months later, Hurricane Milton dumped an additional 16.00 inches in a single evening.</p>
+
+<div class="stat-highlight-row">
+<div class="stat-badge-item">
+<span class="stat-badge-label">Highest Peak Data Point</span>
+<span class="stat-badge-value">16.14 in <small style="font-weight:normal; color:#64748b;">(Aug 4, 2024 - Debby)</small></span>
+</div>
+<div class="stat-badge-item">
+<span class="stat-badge-label">Highest Average Year</span>
+<span class="stat-badge-value">2024 <small style="font-weight:normal; color:#64748b;">(Daily Avg: 0.48 in/day | Total: 175.1 in)</small></span>
+</div>
+</div>
 
 :::: {.scroll-graph}
 ```{r}
-p_precip <- ggplot(weather, aes(x = date, y = precip)) +
-  geom_col(fill = "#0288D1", width = 1) +
-  geom_vline(data = disasters, aes(xintercept = date), linetype = "dashed", color = "#C62828", alpha = 0.4) +
-  geom_point(data = filter(weather, !is.na(event)), 
-             aes(text = paste0("<b>", event, "</b><br>Date: ", date, "<br>Precipitation: ", round(precip, 2), " in")),
-             color = "#C62828", size = 2) +
-  scale_x_date(date_breaks = "1 year", date_labels = "%Y", expand = c(0.01, 0)) +
-  labs(title = "Daily Total Precipitation (inches) — 10-Year Rainfall Log (2015–2024)", x = "Year", y = "Precipitation (in)") +
-  theme_minimal(base_size = 12) +
-  theme(panel.grid.minor = element_blank())
-
-suppressWarnings(ggplotly(p_precip, tooltip = c("x", "y", "text")))
+plot_ly(weather_hourly, x = ~datetime, y = ~precip, type = "scattergl", mode = "lines",
+        line = list(color = "#0288D1", width = 1), name = "Hourly Precipitation") |>
+  layout(
+    title = list(text = "Hourly Precipitation (inches) — Every Recorded Observation (2015–2024)", x = 0),
+    xaxis = list(title = "Timestamp", showgrid = TRUE),
+    yaxis = list(title = "Precipitation (in)", showgrid = TRUE),
+    shapes = disaster_shapes,
+    margin = list(t = 40, b = 40, l = 50, r = 20)
+  )
 ```
 ::::
 :::::

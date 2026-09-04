@@ -111,6 +111,40 @@ body {
   margin-bottom: 1.25rem;
 }
 
+/* Metric Key Stats Callout Row */
+.stat-highlight-row {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 1.5rem;
+  margin: 1rem 0 1.25rem 0;
+  padding: 0.9rem 1.25rem;
+  background-color: #f1f5f9;
+  border-left: 4px solid #0288d1;
+  border-radius: 8px;
+}
+
+.stat-badge-item {
+  flex: 1 1 200px;
+}
+
+.stat-badge-label {
+  display: block;
+  font-size: 0.75rem;
+  font-weight: 700;
+  text-transform: uppercase;
+  letter-spacing: 0.5px;
+  color: #64748b;
+  margin-bottom: 0.2rem;
+}
+
+.stat-badge-value {
+  display: block;
+  font-size: 1.1rem;
+  font-weight: 800;
+  color: #0f172a;
+}
+
+
 /* Title-Triggered Auto-Draw Graph Animation */
 .scroll-graph {
   position: relative;
