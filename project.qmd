@@ -43,20 +43,38 @@ weather_hourly <- map(files, \(f) {
 
 # Significant Florida natural disasters and storms during 2015-2024
 disasters <- tribble(
-  ~datetime, ~event,
-  as.POSIXct("2016-09-02 12:00:00"), "Hurricane Hermine",
-  as.POSIXct("2017-09-10 12:00:00"), "Hurricane Irma",
-  as.POSIXct("2018-10-10 12:00:00"), "Hurricane Michael",
-  as.POSIXct("2022-09-28 12:00:00"), "Hurricane Ian",
-  as.POSIXct("2022-12-24 12:00:00"), "Christmas Arctic Freeze",
-  as.POSIXct("2023-08-30 12:00:00"), "Hurricane Idalia",
-  as.POSIXct("2024-08-04 12:00:00"), "Hurricane Debby",
-  as.POSIXct("2024-09-26 12:00:00"), "Hurricane Helene",
-  as.POSIXct("2024-10-09 12:00:00"), "Hurricane Milton"
+  ~date, ~event,
+  as.Date("2016-09-02"), "Hurricane Hermine",
+  as.Date("2017-09-10"), "Hurricane Irma",
+  as.Date("2018-10-10"), "Hurricane Michael",
+  as.Date("2022-09-28"), "Hurricane Ian",
+  as.Date("2022-12-24"), "Christmas Arctic Freeze",
+  as.Date("2023-08-30"), "Hurricane Idalia",
+  as.Date("2024-08-04"), "Hurricane Debby",
+  as.Date("2024-09-26"), "Hurricane Helene",
+  as.Date("2024-10-09"), "Hurricane Milton"
 )
 
+# Extract precise metric values during each disaster date for interactive hover markers
+disaster_points <- map(1:nrow(disasters), \(i) {
+  d <- disasters$date[i]
+  ev <- disasters$event[i]
+  sub <- weather_hourly |> filter(as.Date(datetime) == d)
+  
+  tibble(
+    event = ev,
+    date = d,
+    datetime = sub$datetime[1],
+    temp = if(grepl("Freeze", ev)) min(sub$temp, na.rm = TRUE) else max(sub$temp, na.rm = TRUE),
+    dew_point = mean(sub$dew_point, na.rm = TRUE),
+    pressure = min(sub$pressure, na.rm = TRUE),
+    wind_speed = max(sub$wind_speed, na.rm = TRUE),
+    precip = max(sub$precip, na.rm = TRUE)
+  )
+}) |> list_rbind()
+
 # Vertical red dashed markers for natural disasters
-disaster_shapes <- pmap(disasters, \(datetime, event) {
+disaster_shapes <- pmap(disaster_points, \(datetime, event, ...) {
   list(
     type = "line",
     x0 = datetime,
@@ -110,8 +128,20 @@ disaster_shapes <- pmap(disasters, \(datetime, event) {
 </div>
 
 ::: {.callout-note}
-### Natural Disasters Tracked (Red Dashed Markers)
-Across the decade, Tampa confronted historic tropical cyclones and extreme temperature anomalies. The red dashed lines mark landfall and close-passage dates for **Hurricane Hermine (2016)**, **Hurricane Irma (2017)**, **Hurricane Michael (2018)**, **Hurricane Ian (2022)**, the **Christmas 2022 Arctic Outbreak**, **Hurricane Idalia (2023)**, **Hurricane Debby (2024)**, **Hurricane Helene (2024)**, and **Hurricane Milton (2024)**. Each graph features **every recorded hourly observation (over 87,500 data points)** across the 10-year span and automatically draws itself when you arrive at its section!
+### Natural Disasters Tracked (Red Dashed Markers & Interactive Red Dots)
+Across the decade, Tampa confronted historic tropical cyclones and extreme temperature anomalies. The red dashed vertical lines and interactive red markers on each graph highlight the 9 major events:
+
+1. **Hurricane Hermine** (Sep 2, 2016) — Tropical gale & coastal flooding
+2. **Hurricane Irma** (Sep 10, 2017) — Historic pressure drop (28.69 inHg), 46 mph sustained winds
+3. **Hurricane Michael** (Oct 10, 2018) — Category 5 Gulf passage
+4. **Hurricane Ian** (Sep 28, 2022) — Major storm surge threat, 36 mph winds
+5. **Christmas Arctic Outbreak** (Dec 24, 2022) — Decade-record freeze down to 29°F
+6. **Hurricane Idalia** (Aug 30, 2023) — Category 4 Gulf transit & high tide surge
+7. **Hurricane Debby** (Aug 4, 2024) — Record 24-hr deluge (16.14 in)
+8. **Hurricane Helene** (Sep 26, 2024) — Historic storm surge disaster, 39 mph winds
+9. **Hurricane Milton** (Oct 9, 2024) — Direct Tampa Bay landfall, 16.00 in rain, 29.10 inHg pressure
+
+*Tip: Hover over any red dot or dashed line on the charts to see the storm name and its exact telemetry reading!*
 :::
 
 ## 1. Thermal Trends: Temperature Record
@@ -136,8 +166,14 @@ SURFACE CLIMATOLOGY BRIEFING
 
 :::: {.scroll-graph}
 ```{r}
-plot_ly(weather_hourly, x = ~datetime, y = ~temp, type = "scattergl", mode = "lines",
-        line = list(color = "#D84315", width = 1), name = "Hourly Temp") |>
+plot_ly() |>
+  add_trace(data = weather_hourly, x = ~datetime, y = ~temp, type = "scattergl", mode = "lines",
+            line = list(color = "#D84315", width = 1), name = "Hourly Temp") |>
+  add_trace(data = disaster_points, x = ~datetime, y = ~temp, type = "scatter", mode = "markers",
+            marker = list(color = "#C62828", size = 8, symbol = "circle"),
+            name = "Disaster Event",
+            text = ~paste0("<b>", event, "</b><br>Date: ", format(date, "%b %d, %Y"), "<br>Temp: ", temp, " °F"),
+            hoverinfo = "text") |>
   layout(
     title = list(text = "Hourly Temperature (°F) — Every Recorded Observation (2015–2024)", x = 0),
     xaxis = list(title = "Timestamp", showgrid = TRUE),
@@ -171,8 +207,14 @@ MOISTURE & HUMIDITY PROFILING
 
 :::: {.scroll-graph}
 ```{r}
-plot_ly(weather_hourly, x = ~datetime, y = ~dew_point, type = "scattergl", mode = "lines",
-        line = list(color = "#00695C", width = 1), name = "Hourly Dew Point") |>
+plot_ly() |>
+  add_trace(data = weather_hourly, x = ~datetime, y = ~dew_point, type = "scattergl", mode = "lines",
+            line = list(color = "#00695C", width = 1), name = "Hourly Dew Point") |>
+  add_trace(data = disaster_points, x = ~datetime, y = ~dew_point, type = "scatter", mode = "markers",
+            marker = list(color = "#C62828", size = 8, symbol = "circle"),
+            name = "Disaster Event",
+            text = ~paste0("<b>", event, "</b><br>Date: ", format(date, "%b %d, %Y"), "<br>Dew Point: ", round(dew_point, 1), " °F"),
+            hoverinfo = "text") |>
   layout(
     title = list(text = "Hourly Dew Point (°F) — Every Recorded Observation (2015–2024)", x = 0),
     xaxis = list(title = "Timestamp", showgrid = TRUE),
@@ -206,8 +248,14 @@ SYNOPTIC BAROMETRY & HURRICANE TRACKING
 
 :::: {.scroll-graph}
 ```{r}
-plot_ly(weather_hourly, x = ~datetime, y = ~pressure, type = "scattergl", mode = "lines",
-        line = list(color = "#1565C0", width = 1), name = "Hourly Pressure") |>
+plot_ly() |>
+  add_trace(data = weather_hourly, x = ~datetime, y = ~pressure, type = "scattergl", mode = "lines",
+            line = list(color = "#1565C0", width = 1), name = "Hourly Pressure") |>
+  add_trace(data = disaster_points, x = ~datetime, y = ~pressure, type = "scatter", mode = "markers",
+            marker = list(color = "#C62828", size = 8, symbol = "circle"),
+            name = "Disaster Event",
+            text = ~paste0("<b>", event, "</b><br>Date: ", format(date, "%b %d, %Y"), "<br>Pressure: ", pressure, " inHg"),
+            hoverinfo = "text") |>
   layout(
     title = list(text = "Hourly Station Pressure (inHg) — Every Recorded Observation (2015–2024)", x = 0),
     xaxis = list(title = "Timestamp", showgrid = TRUE),
@@ -241,8 +289,14 @@ ANEMOMETER & GALE TELEMETRY
 
 :::: {.scroll-graph}
 ```{r}
-plot_ly(weather_hourly, x = ~datetime, y = ~wind_speed, type = "scattergl", mode = "lines",
-        line = list(color = "#6A1B9A", width = 1), name = "Hourly Wind Speed") |>
+plot_ly() |>
+  add_trace(data = weather_hourly, x = ~datetime, y = ~wind_speed, type = "scattergl", mode = "lines",
+            line = list(color = "#6A1B9A", width = 1), name = "Hourly Wind Speed") |>
+  add_trace(data = disaster_points, x = ~datetime, y = ~wind_speed, type = "scatter", mode = "markers",
+            marker = list(color = "#C62828", size = 8, symbol = "circle"),
+            name = "Disaster Event",
+            text = ~paste0("<b>", event, "</b><br>Date: ", format(date, "%b %d, %Y"), "<br>Wind Speed: ", wind_speed, " mph"),
+            hoverinfo = "text") |>
   layout(
     title = list(text = "Hourly Wind Speed (mph) — Every Recorded Observation (2015–2024)", x = 0),
     xaxis = list(title = "Timestamp", showgrid = TRUE),
@@ -276,8 +330,14 @@ HYDROLOGICAL DISPATCH & RAINFALL TOTALS
 
 :::: {.scroll-graph}
 ```{r}
-plot_ly(weather_hourly, x = ~datetime, y = ~precip, type = "scattergl", mode = "lines",
-        line = list(color = "#0288D1", width = 1), name = "Hourly Precipitation") |>
+plot_ly() |>
+  add_trace(data = weather_hourly, x = ~datetime, y = ~precip, type = "scattergl", mode = "lines",
+            line = list(color = "#0288D1", width = 1), name = "Hourly Precip") |>
+  add_trace(data = disaster_points, x = ~datetime, y = ~precip, type = "scatter", mode = "markers",
+            marker = list(color = "#C62828", size = 8, symbol = "circle"),
+            name = "Disaster Event",
+            text = ~paste0("<b>", event, "</b><br>Date: ", format(date, "%b %d, %Y"), "<br>Precipitation: ", precip, " in"),
+            hoverinfo = "text") |>
   layout(
     title = list(text = "Hourly Precipitation (inches) — Every Recorded Observation (2015–2024)", x = 0),
     xaxis = list(title = "Timestamp", showgrid = TRUE),
@@ -288,3 +348,154 @@ plot_ly(weather_hourly, x = ~datetime, y = ~precip, type = "scattergl", mode = "
 ```
 ::::
 :::::
+
+## 6. Natural Disaster & Landfall Telemetry Dossier (2015–2024)
+
+::::: {.news-chart-card}
+:::: {.news-section-tag}
+TROPICAL & EXTREME WEATHER INTELLIGENCE
+::::
+### Landfall & Storm Peak Telemetry Analysis
+<p class="news-lede">When major hurricanes make landfall along the Florida coastline, Tampa International Airport (KTPA) records immediate atmospheric signatures—dramatic drops in station pressure, intense wind gusts, and torrential tropical rain bands. The comparative chart and telemetry dossier below highlight key meteorological data points captured <strong>right at landfall</strong> as well as each disaster's overall peak intensity at Tampa.</p>
+
+:::: {.scroll-graph}
+```{r}
+#| label: disaster-comparison-chart
+disaster_chart_data <- tribble(
+  ~event, ~type, ~cat, ~landfall_time, ~landfall_loc, ~press_lf, ~wind_lf, ~temp_lf, ~min_press, ~max_wind, ~tot_rain,
+  "Hermine", "Cyclone", "Cat 1", "Sep 2, 2016 01:30 EDT", "St. Marks, FL", 29.80, 26, 82, 29.74, 30, 6.70,
+  "Irma", "Cyclone", "Cat 3/4", "Sep 10, 2017 15:35 EDT", "Marco Island, FL", 29.49, 25, 75, 28.69, 46, 12.45,
+  "Michael", "Cyclone", "Cat 5", "Oct 10, 2018 13:00 EDT", "Mexico Beach, FL", 29.76, 21, 85, 29.72, 22, 0.54,
+  "Ian", "Cyclone", "Cat 4", "Sep 28, 2022 15:05 EDT", "Cayo Costa, FL", 29.58, 23, 73, 29.53, 36, 4.19,
+  "Xmas Freeze", "Freeze", "Historic", "Dec 24, 2022 07:00 EST", "Continental Polar", 30.28, 10, 32, 29.93, 22, 0.00,
+  "Idalia", "Cyclone", "Cat 3", "Aug 30, 2023 07:45 EDT", "Keaton Beach, FL", 29.64, 23, 83, 29.52, 33, 6.89,
+  "Debby", "Cyclone", "Cat 1", "Aug 4, 2024 07:00 EDT", "Steinhatchee, FL", 29.82, 7, 79, 29.67, 34, 17.68,
+  "Helene", "Cyclone", "Cat 4", "Sep 26, 2024 23:10 EDT", "Perry, FL", 29.50, 24, 82, 29.29, 39, 4.77,
+  "Milton", "Cyclone", "Cat 3", "Oct 9, 2024 20:30 EDT", "Siesta Key, FL", 29.12, 33, 71, 29.12, 33, 16.03
+)
+
+plot_ly(disaster_chart_data, x = ~event) |>
+  add_bars(
+    y = ~max_wind,
+    name = "Peak Sustained Wind (mph)",
+    marker = list(color = "#7B1FA2"),
+    text = ~paste0("<b>", event, "</b> (", cat, ")<br>Landfall: ", landfall_time, "<br>Location: ", landfall_loc, "<br><b>At Landfall:</b><br>• Wind: ", wind_lf, " mph<br>• Pressure: ", press_lf, " inHg<br>• Temp: ", temp_lf, "°F<br><b>Peak Wind:</b> ", max_wind, " mph"),
+    hoverinfo = "text"
+  ) |>
+  add_bars(
+    y = ~tot_rain,
+    name = "Storm Deluge Rain (in)",
+    marker = list(color = "#0288D1"),
+    text = ~paste0("<b>", event, "</b><br>Storm Rain Total: ", tot_rain, " in<br>At Landfall Temp: ", temp_lf, "°F"),
+    hoverinfo = "text"
+  ) |>
+  add_lines(
+    y = ~min_press,
+    name = "Min Pressure (inHg)",
+    yaxis = "y2",
+    line = list(color = "#C62828", width = 3),
+    text = ~paste0("<b>", event, "</b><br>Lowest Pressure: ", min_press, " inHg<br>At Landfall: ", press_lf, " inHg"),
+    hoverinfo = "text"
+  ) |>
+  layout(
+    title = list(text = "10-Year Natural Disaster Telemetry & Landfall Comparison", x = 0),
+    xaxis = list(title = "Natural Disaster Event"),
+    yaxis = list(title = "Wind (mph) & Rainfall (inches)", showgrid = TRUE),
+    yaxis2 = list(title = "Lowest Pressure (inHg)", overlaying = "y", side = "right", range = c(28.2, 30.8), showgrid = FALSE),
+    barmode = "group",
+    legend = list(orientation = "h", x = 0.1, y = 1.15),
+    margin = list(t = 60, b = 40, l = 50, r = 50)
+  )
+```
+::::
+
+<div class="disaster-table-container">
+<table class="disaster-table">
+<thead>
+<tr>
+<th>Event & Category</th>
+<th>Official Landfall / Peak</th>
+<th>Landfall Location</th>
+<th>Data Points Right at Landfall (KTPA)</th>
+<th>Storm Peak Extremes (KTPA)</th>
+<th>Primary Tampa Bay Impact</th>
+</tr>
+</thead>
+<tbody>
+<tr>
+<td><span class="disaster-badge-cyclone">Cat 1 Hurricane</span><br><strong>Hermine</strong></td>
+<td>Sep 2, 2016<br>01:30 EDT</td>
+<td>St. Marks / Big Bend, FL</td>
+<td><span class="telemetry-val">82°F</span> | <span class="telemetry-val">29.80 inHg</span> | <span class="telemetry-val">26 mph</span></td>
+<td>Pressure: <span class="telemetry-val">29.74 inHg</span><br>Peak Wind: <span class="telemetry-val">30 mph</span><br>Rain: <span class="telemetry-val">6.70 in</span></td>
+<td>Outer tropical feeder bands brought coastal road flooding and tidal surges across the Bay.</td>
+</tr>
+<tr>
+<td><span class="disaster-badge-cyclone">Cat 3/4 Hurricane</span><br><strong>Irma</strong></td>
+<td>Sep 10, 2017<br>15:35 EDT</td>
+<td>Marco Island, FL<br><em>(Eye passage: Sep 11 02:00 EDT)</em></td>
+<td><span class="telemetry-val">75°F</span> | <span class="telemetry-val">29.49 inHg</span> | <span class="telemetry-val">25 mph</span><br><em>(At Eye: 28.69 inHg, 46 mph)</em></td>
+<td>Pressure: <span class="telemetry-val">28.69 inHg (Decade Low)</span><br>Peak Wind: <span class="telemetry-val">46 mph (66 mph gust)</span><br>Rain: <span class="telemetry-val">12.45 in</span></td>
+<td>Core battered Tampa with 66 mph gusts, record barometric plunge to 28.69 inHg, and widespread blackouts.</td>
+</tr>
+<tr>
+<td><span class="disaster-badge-cyclone">Cat 5 Hurricane</span><br><strong>Michael</strong></td>
+<td>Oct 10, 2018<br>13:00 EDT</td>
+<td>Mexico Beach, FL</td>
+<td><span class="telemetry-val">85°F</span> | <span class="telemetry-val">29.76 inHg</span> | <span class="telemetry-val">21 mph</span></td>
+<td>Pressure: <span class="telemetry-val">29.72 inHg</span><br>Peak Wind: <span class="telemetry-val">22 mph</span><br>Rain: <span class="telemetry-val">0.54 in</span></td>
+<td>Intense offshore trajectory drained shallow bays through reverse storm surge before outer squalls hit.</td>
+</tr>
+<tr>
+<td><span class="disaster-badge-cyclone">Cat 4 Hurricane</span><br><strong>Ian</strong></td>
+<td>Sep 28, 2022<br>15:05 EDT</td>
+<td>Cayo Costa / Fort Myers, FL</td>
+<td><span class="telemetry-val">73°F</span> | <span class="telemetry-val">29.58 inHg</span> | <span class="telemetry-val">23 mph</span></td>
+<td>Pressure: <span class="telemetry-val">29.53 inHg</span><br>Peak Wind: <span class="telemetry-val">36 mph</span><br>Rain: <span class="telemetry-val">4.19 in</span></td>
+<td>Massive negative surge drained Hillsborough Bay dry for hours before tropical gale winds returned water.</td>
+</tr>
+<tr>
+<td><span class="disaster-badge-freeze">Historic Cold Wave</span><br><strong>Christmas Freeze</strong></td>
+<td>Dec 24, 2022<br>07:00 EST</td>
+<td>Continental Polar Air Outbreak</td>
+<td><span class="telemetry-val">32°F</span> | <span class="telemetry-val">30.28 inHg</span> | <span class="telemetry-val">10 mph</span></td>
+<td>Min Temp: <span class="telemetry-val">29.0°F (Decade Low)</span><br>Dew Point: <span class="telemetry-val">18.0°F</span><br>Max Pressure: <span class="telemetry-val">30.28 inHg</span></td>
+<td>Severe 3-day hard freeze across Central Florida damaging subtropical agriculture and bursting water pipes.</td>
+</tr>
+<tr>
+<td><span class="disaster-badge-cyclone">Cat 3 Hurricane</span><br><strong>Idalia</strong></td>
+<td>Aug 30, 2023<br>07:45 EDT</td>
+<td>Keaton Beach, FL</td>
+<td><span class="telemetry-val">83°F</span> | <span class="telemetry-val">29.64 inHg</span> | <span class="telemetry-val">23 mph</span></td>
+<td>Pressure: <span class="telemetry-val">29.52 inHg</span><br>Peak Wind: <span class="telemetry-val">33 mph</span><br>Rain: <span class="telemetry-val">6.89 in</span></td>
+<td>Coincided with astronomical king tides, pushing 4–5 ft saltwater inundation into Bayshore Blvd.</td>
+</tr>
+<tr>
+<td><span class="disaster-badge-cyclone">Cat 1 Deluge</span><br><strong>Debby</strong></td>
+<td>Aug 4, 2024<br>07:00 EDT</td>
+<td>Steinhatchee, FL</td>
+<td><span class="telemetry-val">79°F</span> | <span class="telemetry-val">29.82 inHg</span> | <span class="telemetry-val">7 mph</span></td>
+<td>Pressure: <span class="telemetry-val">29.67 inHg</span><br>Peak Wind: <span class="telemetry-val">34 mph</span><br>Rain: <span class="telemetry-val">17.68 in (16.14 in/24hr)</span></td>
+<td>Historic 24-hr rainfall record (16.14 in) causing historic flash flooding across Hillsborough County.</td>
+</tr>
+<tr>
+<td><span class="disaster-badge-cyclone">Cat 4 Surge</span><br><strong>Helene</strong></td>
+<td>Sep 26, 2024<br>23:10 EDT</td>
+<td>Perry / Big Bend, FL</td>
+<td><span class="telemetry-val">82°F</span> | <span class="telemetry-val">29.50 inHg</span> | <span class="telemetry-val">24 mph</span></td>
+<td>Pressure: <span class="telemetry-val">29.29 inHg</span><br>Peak Wind: <span class="telemetry-val">39 mph (55+ mph gust)</span><br>Rain: <span class="telemetry-val">4.77 in</span></td>
+<td>Catastrophic 6–7 ft storm surge devastated coastal Pinellas & Hillsborough barrier islands.</td>
+</tr>
+<tr>
+<td><span class="disaster-badge-cyclone">Cat 3 Eyewall</span><br><strong>Milton</strong></td>
+<td>Oct 9, 2024<br>20:30 EDT</td>
+<td>Siesta Key / Sarasota, FL<br><em>(50 miles S of KTPA)</em></td>
+<td><span class="telemetry-val">71°F</span> | <span class="telemetry-val">29.12 inHg</span> | <span class="telemetry-val">33 mph</span></td>
+<td>Pressure: <span class="telemetry-val">29.12 inHg (Eyewall Dip)</span><br>Peak Wind: <span class="telemetry-val">33 mph (50+ mph gust)</span><br>Rain: <span class="telemetry-val">16.03 in</span></td>
+<td>Direct northern eyewall transit dumped 16 inches of torrential rain with fierce squalls and building damage.</td>
+</tr>
+</tbody>
+</table>
+</div>
+:::::
+

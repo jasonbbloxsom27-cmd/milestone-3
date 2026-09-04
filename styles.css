@@ -160,3 +160,66 @@ body {
   clip-path: inset(0 0% 0 0);
   -webkit-clip-path: inset(0 0% 0 0);
 }
+
+/* Disaster Dossier Table Styling */
+.disaster-table-container {
+  overflow-x: auto;
+  margin-top: 1.5rem;
+  border-radius: 10px;
+  border: 1px solid #e2e8f0;
+  box-shadow: 0 4px 15px rgba(0, 0, 0, 0.05);
+}
+
+.disaster-table {
+  width: 100%;
+  border-collapse: collapse;
+  font-size: 0.88rem;
+  background: #ffffff;
+}
+
+.disaster-table th {
+  background: #1e293b;
+  color: #ffffff;
+  padding: 0.9rem 1rem;
+  text-align: left;
+  font-weight: 700;
+  letter-spacing: 0.5px;
+  font-size: 0.78rem;
+  text-transform: uppercase;
+}
+
+.disaster-table td {
+  padding: 0.85rem 1rem;
+  border-bottom: 1px solid #e2e8f0;
+  vertical-align: middle;
+}
+
+.disaster-table tr:hover {
+  background-color: #f8fafc;
+}
+
+.disaster-badge-cyclone {
+  background-color: #fee2e2;
+  color: #991b1b;
+  font-weight: 700;
+  padding: 0.2rem 0.5rem;
+  border-radius: 4px;
+  font-size: 0.75rem;
+  display: inline-block;
+}
+
+.disaster-badge-freeze {
+  background-color: #e0f2fe;
+  color: #0369a1;
+  font-weight: 700;
+  padding: 0.2rem 0.5rem;
+  border-radius: 4px;
+  font-size: 0.75rem;
+  display: inline-block;
+}
+
+.telemetry-val {
+  font-weight: 700;
+  color: #0f172a;
+}
+
